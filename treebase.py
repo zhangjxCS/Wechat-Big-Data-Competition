@@ -104,19 +104,11 @@ df['videoplayseconds'] *= 1000
 df['is_finish'] = (df['play'] >= df['videoplayseconds']).astype('int8')
 df['play_times'] = df['play'] / df['videoplayseconds']
 
-play_cols = [
-    'is_finish', 'play_times', 'play', 'stay'
-]
+play_cols = ['is_finish', 'play_times', 'play', 'stay']
 
 ## 统计历史5天的曝光、转化、视频观看等情况（此处的转化率统计其实就是target encoding）
 n_day = 5
-for stat_cols in tqdm([
-    ['userid'],
-    ['feedid'],
-    ['authorid'],
-    ['userid', 'authorid']
-]):
-
+for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['userid', 'authorid']]):
     f = '_'.join(stat_cols)
     stat_df = pd.DataFrame()
     for target_day in range(2, max_day + 1):
@@ -149,15 +141,10 @@ for stat_cols in tqdm([
 ## 全局信息统计，包括曝光、偏好等，略有穿越，但问题不大，可以上分，只要注意不要对userid-feedid做组合统计就行
 for f in tqdm(['userid', 'feedid', 'authorid']):
     df[f + '_count'] = df[f].map(df[f].value_counts())
-for f1, f2 in tqdm([
-    ['userid', 'feedid'],
-    ['userid', 'authorid']
-]):
+for f1, f2 in tqdm([['userid', 'feedid'], ['userid', 'authorid']]):
     df['{}_in_{}_nunique'.format(f1, f2)] = df.groupby(f2)[f1].transform('nunique')
     df['{}_in_{}_nunique'.format(f2, f1)] = df.groupby(f1)[f2].transform('nunique')
-for f1, f2 in tqdm([
-    ['userid', 'authorid']
-]):
+for f1, f2 in tqdm([['userid', 'authorid']]):
     df['{}_{}_count'.format(f1, f2)] = df.groupby([f1, f2])['date_'].transform('count')
     df['{}_in_{}_count_prop'.format(f1, f2)] = df['{}_{}_count'.format(f1, f2)] / (df[f2 + '_count'] + 1)
     df['{}_in_{}_count_prop'.format(f2, f1)] = df['{}_{}_count'.format(f1, f2)] / (df[f1 + '_count'] + 1)
