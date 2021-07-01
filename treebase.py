@@ -75,13 +75,13 @@ y_list = ['read_comment', 'like', 'click_avatar', 'forward', 'favorite', 'commen
 max_day = 15
 
 ## 读取训练集
-train = pd.read_csv('data/user_action.csv')
+train = pd.read_csv('data/wechat_algo_data1/user_action.csv')
 print(train.shape)
 for y in y_list:
     print(y, train[y].mean())
 
 ## 读取测试集
-test = pd.read_csv('data/test_a.csv')
+test = pd.read_csv('data/wechat_algo_data1/test_a.csv')
 test['date_'] = max_day
 print(test.shape)
 
@@ -90,14 +90,30 @@ df = pd.concat([train, test], axis=0, ignore_index=True)
 print(df.head(3))
 
 ## 读取视频信息表
-feed_info = pd.read_csv('data/feed_info.csv')
+feed_info = pd.read_csv('data/wechat_algo_data1/feed_info.csv')
+
+## 读取feed embedding
+from sklearn.decomposition import PCA
+def feed_embedding_pca():
+    feed_embedding = pd.read_csv('data/wechat_algo_data1/feed_embeddings.csv')
+    feed = np.array(feed_embedding.feed_embedding.str.split().tolist())
+    print(feed.shape)
+    pca = PCA(n_components=64)
+    res = pca.fit_transform(feed)
+    print(res.shape)
+    df = pd.DataFrame(res)
+    df['feedid'] = feed_embedding['feedid']
+    return df
+feed_embedding = feed_embedding_pca()
+feed_embedding = feed_embedding.set_index('feedid')
 
 ## 此份baseline只保留这三列
 feed_info = feed_info[[
-    'feedid', 'authorid', 'videoplayseconds'
+    'feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id', 'machine_tag_list', 'manual_tag_list', 'machine_keyword_list', 'manual_keyword_list'
 ]]
 
 df = df.merge(feed_info, on='feedid', how='left')
+df = df.merge(feed_embedding, on='feedid', how='left')
 ## 视频时长是秒，转换成毫秒，才能与play、stay做运算
 df['videoplayseconds'] *= 1000
 ## 是否观看完视频（其实不用严格按大于关系，也可以按比例，比如观看比例超过0.9就算看完）
@@ -106,9 +122,37 @@ df['play_times'] = df['play'] / df['videoplayseconds']
 
 play_cols = ['is_finish', 'play_times', 'play', 'stay']
 
+# tag
+df['machine_tag_list'] = df['machine_tag_list'].apply(lambda x: str(x).split(";") if str(x)!='nan' else [])
+df['machine_tag_1'] = df['machine_tag_list'].apply(lambda x: int(x[0].split(" ")[0]) if len(x)>0 else np.nan)
+df['machine_tag_2'] = df['machine_tag_list'].apply(lambda x: int(x[1].split(" ")[0]) if len(x)>1 else np.nan)
+df['machine_tag_3'] = df['machine_tag_list'].apply(lambda x: int(x[2].split(" ")[0]) if len(x)>2 else np.nan)
+df['machine_tag_4'] = df['machine_tag_list'].apply(lambda x: int(x[3].split(" ")[0]) if len(x)>3 else np.nan)
+
+df['manual_tag_list'] = df['manual_tag_list'].apply(lambda x: str(x).split(";") if str(x)!='nan' else [])
+df['manual_tag_1'] = df['manual_tag_list'].apply(lambda x: int(x[0]) if len(x)>0 else np.nan)
+df['manual_tag_2'] = df['manual_tag_list'].apply(lambda x: int(x[1]) if len(x)>1 else np.nan)
+df['manual_tag_3'] = df['manual_tag_list'].apply(lambda x: int(x[2]) if len(x)>2 else np.nan)
+df['manual_tag_4'] = df['manual_tag_list'].apply(lambda x: int(x[3]) if len(x)>3 else np.nan)
+
+# keyword
+df['machine_keyword_list'] = df['machine_keyword_list'].apply(lambda x: str(x).split(";") if str(x)!='nan' else [])
+df['machine_keyword_1'] = df['machine_keyword_list'].apply(lambda x: int(x[0]) if len(x)>0 else np.nan)
+df['machine_keyword_2'] = df['machine_keyword_list'].apply(lambda x: int(x[1]) if len(x)>1 else np.nan)
+df['machine_keyword_3'] = df['machine_keyword_list'].apply(lambda x: int(x[2]) if len(x)>2 else np.nan)
+df['machine_keyword_4'] = df['machine_keyword_list'].apply(lambda x: int(x[3]) if len(x)>3 else np.nan)
+
+df['manual_keyword_list'] = df['manual_keyword_list'].apply(lambda x: str(x).split(";") if str(x)!='nan' else [])
+df['manual_keyword_1'] = df['manual_keyword_list'].apply(lambda x: int(x[0]) if len(x)>0 else np.nan)
+df['manual_keyword_2'] = df['manual_keyword_list'].apply(lambda x: int(x[1]) if len(x)>1 else np.nan)
+df['manual_keyword_3'] = df['manual_keyword_list'].apply(lambda x: int(x[2]) if len(x)>2 else np.nan)
+df['manual_keyword_4'] = df['manual_keyword_list'].apply(lambda x: int(x[3]) if len(x)>3 else np.nan)
+
+
+
 ## 统计历史5天的曝光、转化、视频观看等情况（此处的转化率统计其实就是target encoding）
-n_day = 5
-for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['userid', 'authorid']]):
+n_day = 7
+for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['bgm_song_id'], ['bgm_singer_id'], ['manual_keyword_1'], ['machine_keyword_1'],['manual_tag_1'], ['machine_tag_1'],['userid', 'authorid'], ['userid', 'bgm_song_id'], ['userid', 'bgm_singer_id'], ['userid','manual_keyword_1'], ['userid', 'machine_keyword_1'], ['userid', 'manual_tag_1'], ['userid', 'machine_tag_1']]):
     f = '_'.join(stat_cols)
     stat_df = pd.DataFrame()
     for target_day in range(2, max_day + 1):
@@ -125,7 +169,7 @@ for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['userid', 'authori
                 tmp['{}_{}day_{}_{}'.format(f, n_day, x, stat)] = g[x].transform(stat)
                 feats.append('{}_{}day_{}_{}'.format(f, n_day, x, stat))
 
-        for y in y_list[:4]:
+        for y in y_list:
             tmp['{}_{}day_{}_sum'.format(f, n_day, y)] = g[y].transform('sum')
             tmp['{}_{}day_{}_mean'.format(f, n_day, y)] = g[y].transform('mean')
             feats.extend(['{}_{}day_{}_sum'.format(f, n_day, y), '{}_{}day_{}_mean'.format(f, n_day, y)])
@@ -139,12 +183,12 @@ for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['userid', 'authori
     gc.collect()
 
 ## 全局信息统计，包括曝光、偏好等，略有穿越，但问题不大，可以上分，只要注意不要对userid-feedid做组合统计就行
-for f in tqdm(['userid', 'feedid', 'authorid']):
+for f in tqdm(['userid', 'feedid', 'authorid', 'bgm_song_id', 'bgm_singer_id', 'manual_keyword_1', 'machine_keyword_1', 'manual_tag_1', 'machine_tag_1']):
     df[f + '_count'] = df[f].map(df[f].value_counts())
-for f1, f2 in tqdm([['userid', 'feedid'], ['userid', 'authorid']]):
+for f1, f2 in tqdm([['userid', 'feedid'], ['userid', 'authorid'], ['userid', 'bgm_song_id'], ['userid', 'bgm_singer_id'], ['userid', 'manual_keyword_1'],['userid', 'machine_keyword_1'],['userid', 'manual_tag_1'], ['userid', 'machine_tag_1']]):
     df['{}_in_{}_nunique'.format(f1, f2)] = df.groupby(f2)[f1].transform('nunique')
     df['{}_in_{}_nunique'.format(f2, f1)] = df.groupby(f1)[f2].transform('nunique')
-for f1, f2 in tqdm([['userid', 'authorid']]):
+for f1, f2 in tqdm([['userid', 'authorid'], ['userid', 'bgm_song_id'], ['userid', 'bgm_singer_id'], ['userid', 'manual_keyword_1'], ['userid', 'machine_keyword_1'],['userid', 'manual_tag_1'], ['userid', 'machine_tag_1']]):
     df['{}_{}_count'.format(f1, f2)] = df.groupby([f1, f2])['date_'].transform('count')
     df['{}_in_{}_count_prop'.format(f1, f2)] = df['{}_{}_count'.format(f1, f2)] / (df[f2 + '_count'] + 1)
     df['{}_in_{}_count_prop'.format(f2, f1)] = df['{}_{}_count'.format(f1, f2)] / (df[f1 + '_count'] + 1)
@@ -153,13 +197,13 @@ df['videoplayseconds_in_authorid_mean'] = df.groupby('authorid')['videoplaysecon
 df['feedid_in_authorid_nunique'] = df.groupby('authorid')['feedid'].transform('nunique')
 
 ## 内存够用的不需要做这一步
-df = reduce_mem(df, [f for f in df.columns if f not in ['date_'] + play_cols + y_list])
+df = reduce_mem(df, [f for f in df.columns if f not in ['date_', 'machine_tag_list', 'manual_tag_list', 'machine_keyword_list', 'manual_keyword_list'] + play_cols + y_list])
 
 train = df[~df['read_comment'].isna()].reset_index(drop=True)
 test = df[df['read_comment'].isna()].reset_index(drop=True)
 
 
-cols = [f for f in df.columns if f not in ['date_'] + play_cols + y_list]
+cols = [f for f in df.columns if f not in ['date_', 'machine_tag_list', 'manual_tag_list', 'machine_keyword_list', 'manual_keyword_list'] + play_cols + y_list]
 print(train[cols].shape)
 
 trn_x = train[train['date_'] < 14].reset_index(drop=True)
@@ -201,13 +245,12 @@ print(uauc_list)
 print(weighted_uauc)
 
 ##################### 全量训练 #####################
-
 r_dict = dict(zip(y_list[:4], r_list))
 for y in y_list[:4]:
     print('=========', y, '=========')
     t = time.time()
     clf = LGBMClassifier(
-        learning_rate=0.05,
+        learning_rate=0.02,
         n_estimators=r_dict[y],
         num_leaves=63,
         subsample=0.8,
