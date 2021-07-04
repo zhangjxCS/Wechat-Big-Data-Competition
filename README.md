@@ -1,16 +1,56 @@
-# 1.背景
+# 微信大数据竞赛
 
-清华大学和腾讯联合举办的2021中国高校计算机大赛——微信大数据挑战赛（[https://algo.weixin.qq.com](https://algo.weixin.qq.com)），提供了微信视频号的用户行为、视频基本信息等数据，要求参赛者运用算法预测测试集上用户对视频的行为（包括查看评论、点赞、点击头像、转发等）的发生概率。
+## 1.背景
 
-# 2.模型
+清华大学和腾讯联合举办的2021中国高校计算机大赛——[微信大数据挑战赛](https://algo.weixin.qq.com)。本次比赛基于脱敏和采样后的数据信息，对于给定的一定数量到访过微信视频号“热门推荐”的用户，根据这些用户在视频号内的历史n天的行为数据，通过算法在测试集上预测出这些用户对于不同视频内容的互动行为（包括点赞、点击头像、收藏、转发等）的发生概率。本次比赛以多个行为预测结果的加权uAUC值进行评分。
 
-大赛官方为参赛者提供了多个模型的baseline，我主要参考了wide & deep（[https://github.com/WeChat-Big-Data-Challenge-2021/WeChat_Big_Data_Challenge.git](https://github.com/WeChat-Big-Data-Challenge-2021/WeChat_Big_Data_Challenge.git)）和deepfm（[https://github.com/dpoqb/wechat_big_data_baseline_pytorch](https://github.com/dpoqb/wechat_big_data_baseline_pytorch)）两个模型的baseline，并在deepfm模型的baseline基础上加以改进。
+## 2.数据
 
-改进的思路主要有两点：一是从数据特征入手，在baseline的6项特征（用户id，视频id，视频作者id，视频时长，视频bgm的id，视频bgm歌手的id）基础上，增加了多模态内容理解特征、关键词和标签作为模型的输入特征，其中多模态内容理解特征采用PCA从512维降至64维，人工关键词、机器关键词和人工标签均取第一个，机器标签取概率最大的；二是调节超参数，如线性部分的l2正则化、dnn部分的l2正则化、embedding向量的l2正则化，以及结合10折交叉验证，选择最优的迭代次数。
+所有数据的下载可见[官方网站](https://algo.weixin.qq.com/problem-description)，主要数据包括以下：
 
-代码见prepare_data.py和deepfm.py两个文件，其中prepare_data.py文件用于数据预处理，生成训练集和测试集，deepfm.py文件用于模型训练与预测。
+• feed_info.csv: 视频（简称为feed）的基本信息和文本、音频、视频等多模态特征
 
-运行示例如下：
+• user_action.csv: 用户在视频号内一段时间内的历史行为数据（包括停留时长、播放时长和各项互动数据）
+
+• feed_embeddings.csv: 基于视频信息、视频文字信息、语音信息构建的embedding矩阵
+
+• test_a.csv test_b.csv: A榜与B榜测试集
+
+## 3.特征工程
+
+推荐系统中常用的特征主要有以下三个部分
+
+• 用户信息：包括用户手机号、设备、年龄、性别等
+
+• 视频信息：包括视频描述、字母、关键词、标签、背景音乐等信息
+
+• 用户-视频交互信息：包括用户对视频的点赞、关注、停留时长等信息
+
+常用的构造特征方法：
+
+• 行为统计特征：对于时间序列特征，通常使用滑动窗口方法构造统计特征；通常的模式是时间\*行为*统计量，构造近1周、近5天的用户行为（点赞、关注、评论等）的统计量（计数、求和、最小值、最大值、均值等）；在计算统计量之后，可以对统计量进行二次衍生，计算比例，例如用户点赞次数占比等
+
+• 交互统计特征：通过滑动窗口方法构造用户对视频作者、视频bgm、视频标签等的交互特征次数和比例，挖掘用户对视频作者、视频bgm等信息的偏好程度
+
+• 文本特征：对视频的标签、关键词等信息当作离散变量进行处理；处理方法包括Label Encoding, Onehot Encoding, Target Encoding, TF-IDF, Embedding等
+
+## 4.模型
+
+在广告推荐领域常用的模型主要包括树模型、deepFM模型和Wide & Deep模型，官方的baseline提供了Wide & Deep模型的[代码](https://github.com/WeChat-Big-Data-Challenge-2021/WeChat_Big_Data_Challenge.git)，后续我们构建了基于决策树模型和GBDT思路的LightGBM模型，以及deepfm两个模型。
+
+### LightGBM模型
+
+LightGBM是基于决策树的集成模型，采用GBDT在前树拟合的残差上继续建树的方法进行。使用构造的特征分别对四个互动行为特征建树模型，在交叉验证集上确定最优迭代次数，在测试集上给出预测值
+
+### Wide & Deep模型
+
+
+
+### deepFM模型
+
+
+
+## 5.代码
 
 ```python
 # 数据预处理，传递的参数表示PCA降维的维度，如64维
@@ -36,7 +76,7 @@ df = df / 10
 df.to_csv('submit_base_deepfm_10fold_b榜.csv', index=False)
 ```
 
-# 3.结果
+## 6.结果
 
 上述deepfm模型在a榜的得分为0.659.
 

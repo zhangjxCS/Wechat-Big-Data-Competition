@@ -116,7 +116,7 @@ df = df.merge(feed_info, on='feedid', how='left')
 df = df.merge(feed_embedding, on='feedid', how='left')
 ## 视频时长是秒，转换成毫秒，才能与play、stay做运算
 df['videoplayseconds'] *= 1000
-## 是否观看完视频（其实不用严格按大于关系，也可以按比例，比如观看比例超过0.9就算看完）
+## 是否观看完视频
 df['is_finish'] = (df['play'] >= df['videoplayseconds']).astype('int8')
 df['play_times'] = df['play'] / df['videoplayseconds']
 
@@ -150,7 +150,7 @@ df['manual_keyword_4'] = df['manual_keyword_list'].apply(lambda x: int(x[3]) if 
 
 
 
-## 统计历史5天的曝光、转化、视频观看等情况（此处的转化率统计其实就是target encoding）
+## 统计历史5天的曝光、转化、视频观看等情况
 n_day = 7
 for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['bgm_song_id'], ['bgm_singer_id'], ['manual_keyword_1'], ['machine_keyword_1'],['manual_tag_1'], ['machine_tag_1'],['userid', 'authorid'], ['userid', 'bgm_song_id'], ['userid', 'bgm_singer_id'], ['userid','manual_keyword_1'], ['userid', 'machine_keyword_1'], ['userid', 'manual_tag_1'], ['userid', 'machine_tag_1']]):
     f = '_'.join(stat_cols)
@@ -182,7 +182,7 @@ for stat_cols in tqdm([['userid'], ['feedid'], ['authorid'], ['bgm_song_id'], ['
     del stat_df
     gc.collect()
 
-## 全局信息统计，包括曝光、偏好等，略有穿越，但问题不大，可以上分，只要注意不要对userid-feedid做组合统计就行
+## 全局信息统计，包括曝光、偏好等
 for f in tqdm(['userid', 'feedid', 'authorid', 'bgm_song_id', 'bgm_singer_id', 'manual_keyword_1', 'machine_keyword_1', 'manual_tag_1', 'machine_tag_1']):
     df[f + '_count'] = df[f].map(df[f].value_counts())
 for f1, f2 in tqdm([['userid', 'feedid'], ['userid', 'authorid'], ['userid', 'bgm_song_id'], ['userid', 'bgm_singer_id'], ['userid', 'manual_keyword_1'],['userid', 'machine_keyword_1'],['userid', 'manual_tag_1'], ['userid', 'machine_tag_1']]):
@@ -196,7 +196,7 @@ df['videoplayseconds_in_userid_mean'] = df.groupby('userid')['videoplayseconds']
 df['videoplayseconds_in_authorid_mean'] = df.groupby('authorid')['videoplayseconds'].transform('mean')
 df['feedid_in_authorid_nunique'] = df.groupby('authorid')['feedid'].transform('nunique')
 
-## 内存够用的不需要做这一步
+## 标准的降内存方法
 df = reduce_mem(df, [f for f in df.columns if f not in ['date_', 'machine_tag_list', 'manual_tag_list', 'machine_keyword_list', 'manual_keyword_list'] + play_cols + y_list])
 
 train = df[~df['read_comment'].isna()].reset_index(drop=True)
