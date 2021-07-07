@@ -44,13 +44,32 @@ LightGBM是基于决策树的集成模型，采用GBDT在前树拟合的残差�
 
 ### Wide & Deep模型
 
+下面是wide&deep模型的结构图，由左边的wide部分(一个简单的线性模型)，右边的deep部分(一个典型的DNN模型)。在构建模型时，根据使用场景选择部分特征放在Wide部分，部分特征放在Deep部分。Wide & Deep模型可以平衡模型的记忆能力与泛化能力，推荐结果更精确
 
+![image-20200910214310877](http://datawhale.club/uploads/default/optimized/1X/17d8be55548582135c76bc5e6a6c50c896a9fb14_2_690x170.png)
 
-### deepFM模型
+### DeepFM模型
+
+和Wide & Deep的模型类似，DeepFM模型同样由浅层模型和深层模型联合训练得到。不同点主要有以下两点：
+
+• wide模型部分由LR替换为FM。FM模型具有自动学习交叉特征的能力，避免了原始Wide & Deep模型中浅层部分人工特征工程的工作
+
+• 共享原始输入特征。DeepFM模型的原始特征将作为FM和Deep模型部分的共同输入，保证模型特征的准确与一致
+
+![img](https://pic2.zhimg.com/80/v2-a893a331c3556046be1be7771b2cb1a9_720w.jpg)
 
 
 
 ## 5.代码
+
+### LightGBM
+
+```python
+# 读入数据，使用LightGBM模型预测结果
+!python lightgbm.py
+```
+
+### DeepFM
 
 ```python
 # 数据预处理，传递的参数表示PCA降维的维度，如64维
@@ -78,13 +97,9 @@ df.to_csv('submit_base_deepfm_10fold_b榜.csv', index=False)
 
 ## 6.结果
 
-上述deepfm模型在a榜的得分为0.659.
+lightgbm模型在a榜得分0.655
 
-| 得分     | 查看评论 | 点赞     | 点击头像 | 转发     |
-| -------- | -------- | -------- | -------- | -------- |
-| 0.659452 | 0.640185 | 0.626303 | 0.728065 | 0.698743 |
-
-将该模型与队友的lgb、deepfm模型（有所不同）融合，a榜得分有了进一步提升。
+deepfm模型在a榜的得分为0.659将deepFM模型与lgb融合，a榜得分有了进一步提升。
 
 | 得分     | 查看评论 | 点赞     | 点击头像 | 转发    |
 | -------- | -------- | -------- | -------- | ------- |
